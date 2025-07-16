@@ -19,7 +19,7 @@ class WeatherData(SQLModel, table=True):
     __tablename__ = "weather_data"  # type: ignore[assignment]
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    city_id: int = Field(foreign_key="cities.id")
+    city_id: int = Field(foreign_key="cities.id", ondelete="CASCADE")
     temperature: float = Field()  # in Celsius
     description: str = Field(max_length=200)
     humidity: int = Field(default=0)  # percentage
