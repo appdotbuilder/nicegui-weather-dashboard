@@ -8,6 +8,7 @@ aiohttp==3.12.14
     # via
     #   nicegui
     #   python-socketio
+    #   python-weather
 aiosignal==1.4.0
     # via aiohttp
 annotated-types==0.7.0
@@ -139,7 +140,7 @@ pytest==8.4.1
     #   pytest-metadata
     #   pytest-selenium
     #   pytest-variables
-pytest-asyncio==1.0.0
+pytest-asyncio==1.1.0
     # via template
 pytest-base-url==2.1.0
     # via pytest-selenium
@@ -161,6 +162,8 @@ python-multipart==0.0.20
     # via nicegui
 python-socketio==5.13.0
     # via nicegui
+python-weather==2.1.0
+    # via template
 pyyaml==6.0.2
     # via uvicorn
 requests==2.32.4

@@ -1,18 +1,15 @@
-"""Weather service for fetching weather data from OpenWeatherMap API."""
+"""Weather service for fetching weather data using python-weather library."""
 
-import httpx
+import python_weather
 from typing import Optional, Dict, Any
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
 
 class WeatherService:
-    """Service class for fetching weather data from OpenWeatherMap API."""
+    """Service class for fetching weather data using python-weather library."""
 
     def __init__(self):
-        # For demo purposes, we'll use a free API that doesn't require a key
-        # In production, you'd want to use a proper API key
-        self.base_url = "https://api.openweathermap.org/data/2.5/weather"
         self.geocoder = Nominatim(user_agent="weather_app")
 
     async def get_coordinates(self, city_name: str) -> Optional[tuple[float, float]]:
@@ -36,59 +33,73 @@ class WeatherService:
             return None
 
     async def get_weather_data(self, lat: float, lon: float) -> Optional[Dict[str, Any]]:
-        """Fetch weather data for given coordinates."""
+        """Fetch weather data for given coordinates using python-weather."""
         try:
-            # Using OpenWeatherMap's demo API endpoint
-            # In production, replace with your API key
-            url = f"{self.base_url}?lat={lat}&lon={lon}&appid=demo&units=metric"
+            # Create weather client
+            async with python_weather.Client(unit=python_weather.METRIC) as client:
+                # Get weather data - python-weather works with city names, not coordinates
+                # We need to reverse geocode to get a city name first
+                city_name = await self._get_city_name_from_coordinates(lat, lon)
+                if not city_name:
+                    return None
 
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, timeout=10.0)
+                weather = await client.get(city_name)
 
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    # For demo purposes, return mock data when API is unavailable
-                    return self._get_mock_weather_data()
+                if weather:
+                    # Extract current weather information
+                    # python-weather returns a Weather object with current conditions
+
+                    return {
+                        "temperature": float(weather.temperature)
+                        if hasattr(weather, "temperature") and weather.temperature is not None
+                        else 0.0,
+                        "description": weather.description
+                        if hasattr(weather, "description") and weather.description
+                        else "Unknown",
+                        "humidity": float(weather.humidity)
+                        if hasattr(weather, "humidity") and weather.humidity is not None
+                        else 0.0,
+                        "wind_speed": float(weather.wind_speed)
+                        if hasattr(weather, "wind_speed") and weather.wind_speed is not None
+                        else 0.0,
+                    }
+            return None
         except Exception:
-            # Return mock data for demo purposes
-            return self._get_mock_weather_data()
+            return None
 
-    def _get_mock_weather_data(self) -> Dict[str, Any]:
-        """Return mock weather data for demo purposes."""
-        import random
+    async def _get_city_name_from_coordinates(self, lat: float, lon: float) -> Optional[str]:
+        """Get city name from coordinates using reverse geocoding."""
+        try:
+            import asyncio
 
-        weather_conditions = [
-            {"main": "Clear", "description": "clear sky"},
-            {"main": "Clouds", "description": "few clouds"},
-            {"main": "Clouds", "description": "scattered clouds"},
-            {"main": "Clouds", "description": "broken clouds"},
-            {"main": "Rain", "description": "light rain"},
-            {"main": "Snow", "description": "light snow"},
-            {"main": "Mist", "description": "mist"},
-        ]
+            def reverse_geocode_sync(lat: float, lon: float) -> Any:
+                return self.geocoder.reverse((lat, lon))
 
-        condition = random.choice(weather_conditions)
+            location = await asyncio.get_event_loop().run_in_executor(None, reverse_geocode_sync, lat, lon)
 
-        return {
-            "weather": [condition],
-            "main": {"temp": round(random.uniform(-10, 35), 1), "humidity": random.randint(30, 90)},
-            "wind": {"speed": round(random.uniform(0, 15), 1)},
-        }
+            if location and hasattr(location, "raw") and getattr(location, "raw", None):
+                # Try to extract city name from the address
+                raw_data = getattr(location, "raw", {})
+                address = raw_data.get("address", {}) if isinstance(raw_data, dict) else {}
+                city = address.get("city") or address.get("town") or address.get("village")
+                return city
+            return None
+        except Exception:
+            return None
 
     def parse_weather_response(self, weather_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse weather API response into a standardized format."""
+        """Parse weather data into a standardized format."""
         if not weather_data:
             return {}
 
         try:
             return {
-                "temperature": weather_data["main"]["temp"],
-                "description": weather_data["weather"][0]["description"].title(),
-                "humidity": weather_data["main"]["humidity"],
-                "wind_speed": weather_data["wind"]["speed"],
+                "temperature": weather_data["temperature"],
+                "description": weather_data["description"].title(),
+                "humidity": weather_data["humidity"],
+                "wind_speed": weather_data["wind_speed"],
             }
-        except (KeyError, IndexError):
+        except (KeyError, TypeError):
             return {}
 
 
